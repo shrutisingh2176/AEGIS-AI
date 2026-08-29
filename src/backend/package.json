@@ -28,5 +28,9 @@
     "pcap": "^3.1.0",
     "raw-socket": "^1.8.1",
     "winston": "^3.17.0"
+  },
+  "allowScripts": {
+    "pcap@3.1.0": true,
+    "raw-socket@1.8.1": true
   }
 }
