@@ -5,6 +5,5 @@ scikit-learn
 flask
 flask-cors
 gunicorn
-flask-cors
 psutil
 requests
