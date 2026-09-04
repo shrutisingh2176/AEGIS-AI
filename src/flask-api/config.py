@@ -13,4 +13,4 @@ class Config:
     
     # Network flow analysis settings
     IDLE_THRESHOLD = 500000  # Microseconds (1 second) to consider a gap as "idle"
-    PREDICTION_THRESHOLD = 0.05  # Probability threshold to classify as an attack
+    PREDICTION_THRESHOLD = 0.20  # Probability threshold to classify as an attack

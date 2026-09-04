@@ -251,3 +251,83 @@ body {
   .log-row span:nth-child(3), .log-row span:nth-child(4) { display: none; }
   .topbar { flex-direction: column; }
 }
+
+/* ---------- Dual-layer grid ---------- */
+.dual-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.layer-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.25rem 1.4rem 1.5rem;
+}
+
+.layer-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.layer-head h2 { font-size: 0.95rem; margin: 0; font-weight: 700; }
+
+.layer-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+.tag-network { background: rgba(255, 77, 94, 0.15); color: var(--accent-alert); }
+.tag-system { background: rgba(255, 176, 32, 0.15); color: var(--accent-warn); }
+
+.mini-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+.mini-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.mini-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+.mini-stat.danger .mini-value { color: var(--accent-alert); }
+.mini-stat.safe .mini-value { color: var(--accent-safe); }
+.mini-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.sparkline-small { width: 100%; height: 130px; display: block; margin-bottom: 0.75rem; }
+
+.mini-log { display: flex; flex-direction: column; gap: 0.3rem; }
+.mini-row {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr 0.8fr;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.75rem;
+  border-left: 2px solid transparent;
+  border-radius: 4px;
+}
+.mini-row.row-alert { border-left-color: var(--accent-alert); background: rgba(255, 77, 94, 0.04); }
+.mini-row.row-safe { border-left-color: var(--accent-safe); background: rgba(0, 230, 160, 0.02); }
+
+@media (max-width: 780px) {
+  .dual-grid { grid-template-columns: 1fr; }
+}
