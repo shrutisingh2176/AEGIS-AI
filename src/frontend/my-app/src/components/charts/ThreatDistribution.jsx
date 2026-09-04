@@ -1,9 +1,12 @@
 import React from "react";
 
-export default function ThreatDistribution({ values = [45, 35, 20] }) {
-  const total = values.reduce((sum, value) => sum + value, 0);
+export default function ThreatDistribution({ values = [45, 35, 20], totalCount }) {
   const colors = ["#e85d75", "#f59e0b", "#14b8a6"];
   const labels = ["Network attack", "System compromise", "Baseline deviation"];
+  // Center label shows the real underlying count if provided, otherwise
+  // falls back to the percentage sum (legacy behavior).
+  const centerValue = totalCount !== undefined ? totalCount : values.reduce((sum, v) => sum + v, 0);
+  const centerLabel = totalCount !== undefined ? "Total events" : "Total flags";
 
   return (
     <div style={{
@@ -31,13 +34,13 @@ export default function ThreatDistribution({ values = [45, 35, 20] }) {
             fontFamily: "'Barlow', sans-serif",
             fontSize: 26, fontWeight: 800,
             color: '#122331',
-          }}>{total}</strong>
+          }}>{centerValue}</strong>
           <small style={{
             fontFamily: "'Barlow', sans-serif",
             fontSize: 9, color: '#8896a1',
             textTransform: 'uppercase',
             letterSpacing: '.06em',
-          }}>Total flags</small>
+          }}>{centerLabel}</small>
         </div>
       </div>
       <div style={{

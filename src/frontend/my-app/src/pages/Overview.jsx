@@ -5,8 +5,8 @@ import StatCard from "../components/StatCard";
 import StatusBadge from "../components/StatusBadge";
 import ConfidenceChart from "../components/charts/ConfidenceChart";
 import ThreatDistribution from "../components/charts/ThreatDistribution";
-import { demoOverview } from "../data/demoData";
 import useAlerts from "../hooks/useAlerts";
+import useSystemBehavior from "../hooks/useSystemBehavior";
 
 /* Shared panel wrapper */
 const Panel = ({ children, className = "" }) => (
@@ -18,33 +18,66 @@ const Panel = ({ children, className = "" }) => (
 /* Shared button */
 const Btn = ({ children, variant = 'secondary', onClick, to, className = "" }) => {
   const base = "inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold font-sans cursor-pointer no-underline transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(0,0,0,.1)]";
-  
+
   const variants = {
     primary: "bg-teal border-2 border-teal-dark text-white",
     danger: "bg-red border-2 border-[#c53030] text-white",
     secondary: "bg-white border-[1.5px] border-[#d6e0e4] text-ink hover:border-teal hover:text-teal-dark",
   };
-  
+
   const merged = `${base} ${variants[variant]} ${className}`;
-  
+
   if (to) return <Link to={to} className={merged}>{children}</Link>;
   return <button className={merged} onClick={onClick}>{children}</button>;
 };
 
 export default function Overview() {
   const { alerts, status } = useAlerts();
-  const attackCount = alerts.filter((alert) => alert.is_attack).length;
-  
+  const { sysAlerts, status: sysStatus } = useSystemBehavior();
+
+  const totalFlows = alerts.length;
+  const attackCount = alerts.filter((a) => a.is_attack).length;
+  const normalCount = totalFlows - attackCount;
+  const attackRate = totalFlows ? Math.round((attackCount / totalFlows) * 100) : 0;
+
+  const sysAnomalyCount = sysAlerts.filter((s) => s.is_anomaly).length;
+  const sysTotal = sysAlerts.length;
+  const normalBaselinePct = sysTotal
+    ? (((sysTotal - sysAnomalyCount) / sysTotal) * 100).toFixed(1) + "%"
+    : "—";
+
+  // Risk score: simple proxy from live attack rate (not a fabricated number)
+  const riskScore = attackRate;
+  const riskTone = riskScore >= 50 ? "critical" : riskScore >= 20 ? "warning" : "safe";
+  const riskLabel = riskScore >= 50 ? "High risk" : riskScore >= 20 ? "Elevated" : "Nominal";
+
+  // Confidence trend: last 20 flows, chronological, as 0-100 scale
+  const confidenceTrend = [...alerts]
+    .reverse()
+    .slice(-20)
+    .map((a) => Math.round((a.confidence || 0) * 100));
+
+  // Threat distribution: real proportions across the three categories the
+  // chart expects (must sum to ~100)
+  const distTotal = attackCount + sysAnomalyCount + normalCount || 1;
+  const threatDistribution = [
+    Math.round((attackCount / distTotal) * 100),
+    Math.round((sysAnomalyCount / distTotal) * 100),
+    Math.round((normalCount / distTotal) * 100),
+  ];
+
+  // Most recent flagged flows for the triage queue (real data, not fake hosts)
+  const recentFlagged = alerts.filter((a) => a.is_attack).slice(0, 3);
+
+  const bothConnected = status === "connected" && sysStatus === "connected";
+
   return (
     <div className="flex flex-col gap-7 font-sans">
       <PageHeader
-        eyebrow="Autonomous detection engine / Cluster US-East-02"
+        eyebrow="Layer 1 + Layer 2 detection / local demo instance"
         title="Security Posture"
-        description="Real-time behavioral anomaly and probabilistic risk telemetry across synthetic and physical topologies."
-      >
-        <Btn>Export Triage Report</Btn>
-        <Btn variant="primary">Quarantine Mode</Btn>
-      </PageHeader>
+        description="Live behavioral anomaly telemetry from the network traffic classifier and system behavior monitor running on this machine."
+      />
 
       {/* Risk + KPIs */}
       <section className="grid grid-cols-1 lg:grid-cols-[5fr_7fr] gap-[18px]">
@@ -52,30 +85,28 @@ export default function Overview() {
         <article className="bg-white border border-[#e8eef2] border-l-4 border-l-red rounded-2xl p-[28px_26px] flex flex-col gap-3.5 transition-all duration-350 hover:shadow-[0_16px_40px_rgba(217,79,92,.1)]">
           <div className="flex justify-between items-center">
             <span className="font-sans text-[11px] font-semibold tracking-[0.06em] uppercase text-muted">
-              Aggregate anomaly rating
+              Network attack rate (live)
             </span>
-            <StatusBadge tone="critical">High risk</StatusBadge>
+            <StatusBadge tone={riskTone}>{riskLabel}</StatusBadge>
           </div>
           <strong className="font-sans text-[52px] font-black text-red">
-            {demoOverview.riskScore}
+            {riskScore}
             <small className="text-base font-medium text-[#8896a1] font-sans"> / 100</small>
           </strong>
           <h3 className="text-[15px] font-bold text-ink m-0">
-            Critical deviation detected on monitored infrastructure
+            {totalFlows === 0
+              ? "Waiting for traffic data"
+              : `${attackCount} of ${totalFlows} recent flows flagged as attacks`}
           </h3>
           <p className="text-[13px] text-muted leading-relaxed m-0">
-            Three weak asynchronous signals correlated into one high-probability
-            lateral movement chain in the App Tier.
+            Computed live from the LightGBM classifier's predictions on the last {totalFlows} network flows.
           </p>
-          {/* Risk bar */}
           <div className="flex h-2 rounded-full overflow-hidden bg-[#eef2f7] mt-auto">
-            <i className="w-[32%] bg-teal block" />
-            <i className="w-[18%] bg-[#607d8b] block" />
-            <i className="w-[28%] bg-red block" />
+            <i className="bg-red block" style={{ width: `${attackRate}%` }} />
+            <i className="bg-[#eef2f7] block" style={{ width: `${100 - attackRate}%` }} />
           </div>
           <span className="font-sans text-[10px] text-[#8896a1] tracking-[0.04em]">
-            System heuristics{" "}
-            <b className="text-teal cursor-pointer">Investigate vector →</b>
+            <Link to="/network" className="text-teal cursor-pointer">Inspect network flows →</Link>
           </span>
         </article>
 
@@ -83,28 +114,28 @@ export default function Overview() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           <StatCard
             label="Flows analyzed"
-            value={demoOverview.flowsAnalyzed.toLocaleString()}
-            detail="+12.4% vs normal volume"
+            value={totalFlows}
+            detail="Live count from /alerts"
             icon="↗"
           />
           <StatCard
             label="Network attacks"
-            value={attackCount || 42}
-            detail="Blocked and flagged automatically"
+            value={attackCount}
+            detail="Flagged by LightGBM classifier"
             tone="critical"
             icon="!"
           />
           <StatCard
-            label="System compromises"
-            value={demoOverview.systemCompromises}
-            detail="Active SOC investigation"
+            label="System anomalies"
+            value={sysAnomalyCount}
+            detail="Flagged by Isolation Forest"
             tone="warning"
             icon="~"
           />
           <StatCard
             label="Normal baseline events"
-            value={demoOverview.normalEvents}
-            detail="Healthy operational tolerance"
+            value={normalBaselinePct}
+            detail="System behavior within baseline"
             tone="safe"
             icon="✓"
           />
@@ -118,50 +149,48 @@ export default function Overview() {
             <div>
               <h2 className="text-[17px] font-bold text-ink m-0 mb-1">Attack Confidence - Live Trend</h2>
               <p className="text-[13px] text-[#8896a1] m-0">
-                Statistical deviation scoring based on sliding MITRE ATT&CK heuristics.
+                LightGBM confidence score on the last {confidenceTrend.length} network flows.
               </p>
             </div>
-            <StatusBadge>Streaming telemetry</StatusBadge>
+            <StatusBadge tone={bothConnected ? "safe" : "warning"}>
+              {bothConnected ? "Live telemetry" : "Reconnecting..."}
+            </StatusBadge>
           </div>
-          <ConfidenceChart values={demoOverview.confidence} />
+          <ConfidenceChart values={confidenceTrend} />
         </Panel>
         <Panel>
           <div className="mb-5">
             <h2 className="text-[17px] font-bold text-ink m-0 mb-1">Threat Distribution</h2>
-            <p className="text-[13px] text-[#8896a1] m-0">Classified behavioral occurrences in current cycle.</p>
+            <p className="text-[13px] text-[#8896a1] m-0">Live split across both detection layers.</p>
           </div>
-          <ThreatDistribution values={demoOverview.threatDistribution} />
+          <ThreatDistribution values={threatDistribution} totalCount={attackCount + sysAnomalyCount + normalCount} />
         </Panel>
       </section>
 
-      {/* Activity table */}
+      {/* Activity table - real flagged flows, not fabricated hosts */}
       <Panel>
         <div className="flex flex-wrap justify-between items-start mb-5 gap-3">
           <div>
-            <h2 className="text-[17px] font-bold text-ink m-0 mb-1">Active High-Risk Systems & Quick Triage Queue</h2>
+            <h2 className="text-[17px] font-bold text-ink m-0 mb-1">Recent Flagged Network Flows</h2>
             <p className="text-[13px] text-[#8896a1] m-0">
-              Prioritized endpoint telemetry flagged by correlation algorithms.
+              Most recent flows classified as attacks by Layer 1.
             </p>
           </div>
           <Btn to="/network">Inspect network</Btn>
         </div>
         <div>
-          {[
-            ["Server-04", "Linux App Server", "78 / 100", "Hidden reverse shell + outbound spike", "Investigating"],
-            ["FW-Edge-01", "Edge Firewall", "64 / 100", "Unusual SYN flood bypass attempt", "Mitigated"],
-            ["Workstation-089", "Windows 11 Client", "42 / 100", "Off-hours Kerberos ticket request", "Monitoring"],
-          ].map(([host, type, score, event, state]) => (
-            <div key={host} className="grid grid-cols-[1.1fr_.8fr_2fr_1fr_auto] gap-[15px] items-center py-4 border-t border-[#e8eef2] text-[13px] md:grid-cols-1 md:gap-2 md:py-3">
+          {recentFlagged.length === 0 && (
+            <p className="text-[13px] text-muted py-4">No attacks flagged yet.</p>
+          )}
+          {recentFlagged.map((flow, i) => (
+            <div key={i} className="grid grid-cols-[1.1fr_.8fr_2fr_1fr] gap-[15px] items-center py-4 border-t border-[#e8eef2] text-[13px] md:grid-cols-1 md:gap-2 md:py-3">
               <strong className="text-ink">
-                {host}
-                <small className="block text-[#8896a1] font-normal mt-[3px] text-[11px]">{type}</small>
+                {flow.src_ip}
+                <small className="block text-[#8896a1] font-normal mt-[3px] text-[11px]">→ {flow.dst_ip}</small>
               </strong>
-              <span className="font-sans text-xs text-ink md:hidden">{score}</span>
-              <span className="text-muted">{event}</span>
-              <StatusBadge tone={state === "Investigating" ? "ai" : "safe"}>
-                {state}
-              </StatusBadge>
-              <Btn className="md:w-max">Review</Btn>
+              <span className="font-sans text-xs text-ink">{(flow.confidence * 100).toFixed(1)}%</span>
+              <span className="text-muted">Port {flow.dst_port}</span>
+              <StatusBadge tone="critical">Attack</StatusBadge>
             </div>
           ))}
         </div>
@@ -169,10 +198,8 @@ export default function Overview() {
 
       {/* Connection note */}
       <div className="text-center py-2">
-        <StatusBadge tone={status === "connected" ? "safe" : "warning"}>
-          {status === "connected"
-            ? "Live API data connected"
-            : "Demo metrics - API unavailable"}
+        <StatusBadge tone={bothConnected ? "safe" : "warning"}>
+          {bothConnected ? "Both detection layers connected" : "One or more layers disconnected"}
         </StatusBadge>
       </div>
     </div>

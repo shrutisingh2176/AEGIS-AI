@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
 import StatCard from "../components/StatCard";
 import StatusBadge from "../components/StatusBadge";
@@ -7,15 +6,13 @@ import ConfidenceChart from "../components/charts/ConfidenceChart";
 import useAlerts from "../hooks/useAlerts";
 
 /* Shared button */
-const Btn = ({ children, variant = 'secondary', onClick, to, className = "" }) => {
+const Btn = ({ children, variant = 'secondary', onClick, className = "" }) => {
   const base = "inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold font-sans cursor-pointer no-underline transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(0,0,0,.1)]";
   const variants = {
     primary: "bg-teal border-2 border-teal-dark text-white",
-    danger: "bg-red border-2 border-[#c53030] text-white",
     secondary: "bg-white border-[1.5px] border-[#d6e0e4] text-ink hover:border-teal hover:text-teal-dark",
   };
   const merged = `${base} ${variants[variant]} ${className}`;
-  if (to) return <Link to={to} className={merged}>{children}</Link>;
   return <button className={merged} onClick={onClick}>{children}</button>;
 };
 
@@ -28,69 +25,69 @@ const Panel = ({ children, className = "" }) => (
 export default function Network() {
   const [showAllFlows, setShowAllFlows] = useState(false);
   const { alerts, status } = useAlerts();
+
+  const totalFlows = alerts.length;
   const attacks = alerts.filter((alert) => alert.is_attack).length;
+  const normal = totalFlows - attacks;
+  const attackRate = totalFlows ? Math.round((attacks / totalFlows) * 100) : 0;
+
   const confidence = alerts
-    .slice(0, 7)
+    .slice(0, 20)
     .reverse()
     .map((alert) => Math.round((alert.confidence || 0) * 100));
 
   return (
     <div className="flex flex-col gap-7 font-sans">
       <PageHeader
-        eyebrow="NIDS v4-Core / Zone: Sector-04 Alpha"
+        eyebrow="Layer 1 / LightGBM flow classifier"
         title="Network Intelligence"
-        description="Behavior-based network intrusion monitoring and zero-day protocol deviation analysis."
-      >
-        <Btn>Threshold Rules</Btn>
-        <Btn variant="primary">Autonomous Enforcement Active</Btn>
-      </PageHeader>
+        description="Behavioral analysis of network flow timing patterns — not signature matching."
+      />
 
-      {/* Stats grid — 6 columns */}
+      {/* Stats grid — only metrics we actually compute */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3.5">
-        <StatCard label="Live throughput" value="4.82" detail="Gbps / peak 5.1" icon="⌁" />
-        <StatCard label="Total active flows" value={alerts.length || "892,410"} detail="100% ingest rate" icon="↔" />
-        <StatCard label="Suspicious flows" value={attacks || 148} detail="Autoencoders alert" tone="critical" icon="!" />
-        <StatCard label="Attack confidence" value="82%" detail="Peak / threshold exceeded" tone="critical" icon="↗" />
-        <StatCard label="Top attacked ports" value="4444" detail="Targeting Windows core" icon="#" />
-        <StatCard label="Protocol distribution" value="TCP 68%" detail="UDP 22% / ICMP 7%" icon="◒" />
+        <StatCard label="Total flows analyzed" value={totalFlows} detail="Live count from /alerts" icon="↔" />
+        <StatCard label="Attacks flagged" value={attacks} detail="Classified by LightGBM" tone="critical" icon="!" />
+        <StatCard label="Normal flows" value={normal} detail="Below attack threshold" tone="safe" icon="✓" />
+        <StatCard label="Attack rate" value={`${attackRate}%`} detail="Of analyzed flows" tone={attackRate >= 50 ? "critical" : "warning"} icon="↗" />
       </div>
 
       {/* Chart */}
       <Panel>
         <div className="flex flex-wrap justify-between items-start mb-5 gap-3">
           <div>
-            <h2 className="text-[17px] font-bold text-ink m-0 mb-1">Dual-Axis Protocol Telemetry</h2>
-            <p className="text-[13px] text-[#8896a1] m-0">Throughput and confidence over the live network window.</p>
+            <h2 className="text-[17px] font-bold text-ink m-0 mb-1">Attack Confidence - Live Trend</h2>
+            <p className="text-[13px] text-[#8896a1] m-0">LightGBM confidence score on the last {confidence.length} flows.</p>
           </div>
-          <StatusBadge>Streaming telemetry</StatusBadge>
+          <StatusBadge tone={status === "connected" ? "safe" : "warning"}>
+            {status === "connected" ? "Streaming telemetry" : "Reconnecting..."}
+          </StatusBadge>
         </div>
-        <ConfidenceChart
-          values={confidence.length > 1 ? confidence : [24, 28, 25, 35, 53, 82, 48]}
-          label="Attack confidence"
-        />
+        {confidence.length > 1 ? (
+          <ConfidenceChart values={confidence} label="Attack confidence" />
+        ) : (
+          <p className="text-[13px] text-muted py-10 text-center">Waiting for enough flow data to chart a trend...</p>
+        )}
       </Panel>
 
       {/* Table */}
       <Panel>
         <div className="flex flex-wrap justify-between items-start mb-5 gap-3">
           <div>
-            <h2 className="text-[17px] font-bold text-ink m-0 mb-1">Deep Packet Flow Telemetry</h2>
+            <h2 className="text-[17px] font-bold text-ink m-0 mb-1">Network Flow Log</h2>
             <p className="text-[13px] text-[#8896a1] m-0">
-              Real-time connection metadata, behavioral scores, and autonomous triage states.
+              Real-time flow metadata and classifier verdicts.
             </p>
           </div>
-          <div className="flex gap-2.5 flex-wrap">
-            <Btn onClick={() => setShowAllFlows((c) => !c)}>
-              {showAllFlows ? "Show Recent" : `Show All Flows (${alerts.length || 8})`}
-            </Btn>
-            <Btn>Export PCAP</Btn>
-          </div>
+          <Btn onClick={() => setShowAllFlows((c) => !c)}>
+            {showAllFlows ? "Show Recent" : `Show All Flows (${alerts.length})`}
+          </Btn>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse min-w-[900px]">
+          <table className="w-full border-collapse min-w-[800px]">
             <thead>
               <tr>
-                {["Time", "Source IP", "Destination IP", "Port", "Protocol", "Confidence", "Verdict", "Action"].map(h => (
+                {["Time", "Source IP", "Destination IP", "Port", "Confidence", "Verdict"].map(h => (
                   <th key={h} className="text-left py-3 px-2.5 border-b-2 border-[#e8eef2] font-sans text-[9px] font-semibold tracking-[0.06em] uppercase text-[#8896a1] bg-[#fafcfd]">
                     {h}
                   </th>
@@ -107,21 +104,17 @@ export default function Network() {
                     <td className="py-3.5 px-2.5 text-xs font-sans border-b border-[#e8eef2]">{alert.src_ip}</td>
                     <td className="py-3.5 px-2.5 text-xs font-sans border-b border-[#e8eef2]">{alert.dst_ip}</td>
                     <td className="py-3.5 px-2.5 text-xs font-sans border-b border-[#e8eef2]">{alert.dst_port}</td>
-                    <td className="py-3.5 px-2.5 text-xs border-b border-[#e8eef2]">TCP</td>
                     <td className="py-3.5 px-2.5 text-xs border-b border-[#e8eef2]">{Math.round((alert.confidence || 0) * 100)}%</td>
                     <td className="py-3.5 px-2.5 border-b border-[#e8eef2]">
                       <StatusBadge tone={alert.is_attack ? "critical" : "safe"}>
-                        {alert.is_attack ? "Blocked" : "Allowed"}
+                        {alert.is_attack ? "Attack" : "Normal"}
                       </StatusBadge>
-                    </td>
-                    <td className="py-3.5 px-2.5 border-b border-[#e8eef2]">
-                      <Btn>Inspect</Btn>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="8" className="p-10 text-center text-[#8896a1] text-[13px] border-b border-[#e8eef2]">
+                  <td colSpan="6" className="p-10 text-center text-[#8896a1] text-[13px] border-b border-[#e8eef2]">
                     {status === "disconnected"
                       ? "API disconnected - start the Flask service to stream flows."
                       : "Waiting for traffic data..."}
